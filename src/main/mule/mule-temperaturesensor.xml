@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+ 
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:twilio-connector="http://www.mulesoft.org/schema/mule/twilio-connector"
+
+xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+
+xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+
+http://www.mulesoft.org/schema/mule/twilio-connector http://www.mulesoft.org/schema/mule/twilio-connector/current/mule-twilio-connector.xsd
+
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+
+<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ca19b0e1-b398-4cdb-810b-6d523646e5bb" >
+
+<http:listener-connection host="0.0.0.0" port="8081" />
+
+</http:listener-config>
+
+<scripting:config name="Scripting_Config" doc:name="Scripting Config" doc:id="ef819dc8-694a-449f-be55-6225ebf577a9" />
+
+<twilio-connector:config name="Twilio_Connector_Config" doc:name="Twilio Connector Config" doc:id="3682c42a-af4a-4ba6-beb4-b2992509ab43" property_username="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" property_password="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" >
+
+<twilio-connector:connection />
+
+</twilio-connector:config>
+
+ 
+
+<flow name="nbuw-testFlow" doc:id="e5f90e04-fe53-4208-a14d-0f4bcfe0bb2e" >
+
+<http:listener doc:name="Listener" doc:id="6bcd0203-ccf8-40c8-901e-4a361b3bdf0d" path="/test" config-ref="HTTP_Listener_config"/>
+
+<ee:transform doc:name="set toNum" doc:id="fa5e1466-5de9-4bf5-8370-4db831e41f3c" >
+
+<ee:message >
+
+</ee:message>
+
+<ee:variables >
+
+<ee:set-variable variableName="toNum" ><![CDATA[attributes.queryParams.toNum]]></ee:set-variable>
+
+</ee:variables>
+
+</ee:transform>
+
+<scripting:execute doc:name="exTemp" doc:id="98c17c4f-94a4-4792-af1e-d6aa4dc7d982" engine="groovy">
+
+<scripting:code >def command = &quot;python /home/pi/Downloads/workingTemp.py&quot;
+
+println &quot;$command&quot;
+
+def cmd=command.execute()</scripting:code>
+
+</scripting:execute>
+
+<ee:transform doc:name="set temp" doc:id="79abd41c-35a1-4cb6-beb3-f480ba348caa" >
+
+<ee:message >
+
+</ee:message>
+
+<ee:variables >
+
+<ee:set-variable variableName="temp" ><![CDATA[%dw 2.0
+
+output text/plain
+
+---
+
+payload.inputStream default '10']]></ee:set-variable>
+
+</ee:variables>
+
+</ee:transform>
+
+<try doc:name="Try" doc:id="f304927f-f4d6-434b-9e8c-119e321323d6" >
+
+<ee:transform doc:name="twPayload" doc:id="2649b5a8-a72e-40c6-be9b-7b3053ebbb48" >
+
+<ee:message >
+
+<ee:set-payload ><![CDATA[%dw 2.0
+
+output application/json
+
+---
+
+{
+
+Body: "Hi,Temperature is :" ++ vars.temp as String ++ ".Mule is on Fire",
+
+From: "+16156714137",
+
+ 
+
+To: "+" ++ vars.toNum
+
+} as Object
+
+ 
+
+ {
+
+ 
+
+class : "org.mule.modules.twilio.pojo.sendmessagerequest.MessageInput"
+
+ 
+
+}
+
+]]></ee:set-payload>
+
+</ee:message>
+
+</ee:transform>
+
+<twilio-connector:send-message doc:name="Send message" doc:id="60f1bb6f-6892-4818-8dbd-04d0a8f3208a" config-ref="Twilio_Connector_Config" account-sid="AC458d2ec378410589ff55a3ebabb355c7" />
+
+<scripting:execute doc:name="exGLight" doc:id="aaafca97-3c09-4758-bc6a-08d647174d01" engine="groovy">
+
+<scripting:code >def command = &quot;python /home/pi/Downloads/greenLight.py&quot;
+
+println &quot;$command&quot;
+
+def cmd=command.execute()</scripting:code>
+
+</scripting:execute>
+
+<ee:transform doc:name="success" doc:id="c4aaa485-d2c6-4eee-b747-e60bc49c8f01" >
+
+<ee:message >
+
+<ee:set-payload ><![CDATA['Temperature Recorded and sent message']]></ee:set-payload>
+
+</ee:message>
+
+</ee:transform>
+
+<error-handler >
+
+<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="af97e2ee-ba81-4878-95a1-ae5e09491e3b" >
+
+<scripting:execute doc:name="Execute RedLigt Script" doc:id="f5bbc72c-e8aa-4dae-9192-3184af5c8e44" engine="groovy">
+
+<scripting:code >def command = &quot;python /home/pi/Downloads/redLight.py&quot;
+
+println &quot;$command&quot;
+
+def cmd=command.execute()</scripting:code>
+
+</scripting:execute>
+
+<ee:transform doc:name="sucsess" doc:id="f569c7fc-5e9b-4672-aaab-a029cd032803" >
+
+<ee:message >
+
+<ee:set-payload ><![CDATA['Temperature Recorded but Message  sending failed message']]></ee:set-payload>
+
+</ee:message>
+
+</ee:transform>
+
+</on-error-continue>
+
+</error-handler>
+
+</try>
+
+<logger level="INFO" doc:name="Logger" doc:id="8b4dc217-2af2-41ca-9936-859e21a04df8" message="#[payload]"/>
+
+</flow>
+
+</mule>
